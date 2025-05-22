@@ -14,4 +14,4 @@
 ## 安装
 
 ```bash
-pip install wplot
+pip install wtools
