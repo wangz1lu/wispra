@@ -30,7 +30,7 @@ def plot_grid_expression_score(
     })
     all_counts = all_df.groupby(["x_bin", "y_bin"]).size().reset_index(name="total_cell_count")
 
-    # ✅ 构建全体可能格子（包含真正空格子）
+    # 构建全体可能格子（包含真正空格子）
     x_range = np.arange(x_bin.min(), x_bin.max() + 1)
     y_range = np.arange(y_bin.min(), y_bin.max() + 1)
     all_possible_coords = pd.MultiIndex.from_product([x_range, y_range], names=["x_bin", "y_bin"]).to_frame(index=False)
@@ -175,7 +175,7 @@ def plot_grid_expression_score(
 
     non_zero_scores = score_grid[score_grid > 0]
     if non_zero_scores.size == 0:
-        print("⚠️ 所有格子中得分均为 0，跳过颜色映射自动缩放，使用默认 vmin=0, vmax=1")
+        print("所有格子中得分均为 0，跳过颜色映射自动缩放，使用默认 vmin=0, vmax=1")
         vmin, vmax = 0, 1
     else:
         vmin = np.nanmin(non_zero_scores)
