@@ -1,197 +1,186 @@
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-from matplotlib.colors import ListedColormap
-from scipy.sparse import issparse
-
-def plot_grid_expression_score(
+def plot_all_chips_grid_expression(
     adata,
     genes=None,
     cell_types=None,
     grid_size=100,
-    mode="normal",  # "normal" or "CCI"
-    score_mode="product",  # for "normal" mode: "sum", "mean", or "product"
-    celltype_key="celltype",
+    mode="normal",
+    score_mode="product",
+    celltype_key="subclass",
     L_gene=None,
-    R_gene=None
+    R_gene=None,
+    outline_json_dir=None,
+    library_id_key="orig.ident",
+    cmap="magma_r"
 ):
-    assert "spatial" in adata.obsm, "adata.obsm 中必须包含 'spatial' 空间坐标"
-    coords = adata.obsm["spatial"]
-    x = coords[:, 0]
-    y = coords[:, 1]
+    import matplotlib.pyplot as plt
+    from matplotlib.colors import ListedColormap
+    import numpy as np
+    import pandas as pd
+    import os
+    import json
+    from scipy.sparse import issparse
 
-    x_bin = (x // grid_size).astype(int)
-    y_bin = (y // grid_size).astype(int)
+    def apply_transformation_to_coords(coords, transformation_matrix):
+        coords_homogeneous = np.hstack([coords, np.ones((coords.shape[0], 1))])
+        matrix = np.array(transformation_matrix).reshape(3, 3)
+        transformed = coords_homogeneous @ matrix.T
+        return transformed[:, :2]
 
-    # 所有细胞格子（不含真正空格子）
-    all_df = pd.DataFrame({
-        "x_bin": x_bin,
-        "y_bin": y_bin
-    })
-    all_counts = all_df.groupby(["x_bin", "y_bin"]).size().reset_index(name="total_cell_count")
+    all_chip_ids = adata.obs[library_id_key].unique()
+    n_chips = len(all_chip_ids)
 
-    # 构建全体可能格子（包含真正空格子）
-    x_range = np.arange(x_bin.min(), x_bin.max() + 1)
-    y_range = np.arange(y_bin.min(), y_bin.max() + 1)
-    all_possible_coords = pd.MultiIndex.from_product([x_range, y_range], names=["x_bin", "y_bin"]).to_frame(index=False)
+    # ==== 1. 预计算全局网格范围 ====
+    global_xmin, global_xmax = np.inf, -np.inf
+    global_ymin, global_ymax = np.inf, -np.inf
+    for chip_id in all_chip_ids:
+        adata_chip = adata[adata.obs[library_id_key] == chip_id]
+        coords = adata_chip.obsm["spatial"]
+        x_bin = (coords[:, 0] // grid_size).astype(int)
+        y_bin = (coords[:, 1] // grid_size).astype(int)
+        global_xmin = min(global_xmin, x_bin.min())
+        global_xmax = max(global_xmax, x_bin.max())
+        global_ymin = min(global_ymin, y_bin.min())
+        global_ymax = max(global_ymax, y_bin.max())
 
-    # 合并所有格子，缺失 total_cell_count 设为 0
-    all_counts = pd.merge(all_possible_coords, all_counts, how="left", on=["x_bin", "y_bin"])
-    all_counts["total_cell_count"] = all_counts["total_cell_count"].fillna(0)
+    grid_width = global_xmax - global_xmin + 1
+    grid_height = global_ymax - global_ymin + 1
+    margin =20
+    extent = [
+        global_xmin - 0.5,
+        global_xmax + 0.5,
+        global_ymax + 0.5,
+        global_ymin - 0.5
+    ]
 
-    df = pd.DataFrame({
-        "x": x,
-        "y": y,
-        "x_bin": x_bin,
-        "y_bin": y_bin
-    })
+    fig = plt.figure(figsize=(5 * n_chips, 6), dpi=300)
 
-    if mode == "normal":
-        assert genes is not None and len(genes) > 0, "normal 模式下必须传入 genes"
-        for gene in genes:
-            assert gene in adata.var_names, f"{gene} 不在 adata.var_names 中"
+    for idx, chip_id in enumerate(all_chip_ids):
+        adata_chip = adata[adata.obs[library_id_key] == chip_id].copy()
+        coords = adata_chip.obsm["spatial"]
+        x = coords[:, 0]
+        y = coords[:, 1]
+        x_bin = (x // grid_size).astype(int)
+        y_bin = (y // grid_size).astype(int)
+        df = pd.DataFrame({"x": x, "y": y, "x_bin": x_bin, "y_bin": y_bin})
 
-        X = adata[:, genes].layers["data"]
-        if issparse(X):
-            X = X.toarray()
+        if mode == "normal":
+            assert genes is not None and len(genes) > 0
+            for gene in genes:
+                assert gene in adata.var_names
 
-        for i, gene in enumerate(genes):
-            df[gene] = X[:, i]
+            X = adata_chip[:, genes].layers["data"]
+            if issparse(X): X = X.toarray()
+            for i, gene in enumerate(genes):
+                df[gene] = X[:, i]
 
-        if cell_types is not None:
-            assert celltype_key in adata.obs.columns, f"adata.obs 中缺少 '{celltype_key}' 列"
-            df[celltype_key] = adata.obs[celltype_key].values
-            df = df[df[celltype_key].isin(cell_types)]
+            if cell_types is not None:
+                df[celltype_key] = adata_chip.obs[celltype_key].values
+                df = df[df[celltype_key].isin(cell_types)]
 
-        if score_mode == "product":
-            df["score"] = df[genes].prod(axis=1)
-        elif score_mode == "sum":
-            df["score"] = df[genes].sum(axis=1)
-        elif score_mode == "mean":
-            df["score"] = df[genes].mean(axis=1)
+            gene_means = df.groupby(["x_bin", "y_bin"])[genes].mean().reset_index()
+
+            if score_mode == "product":
+                gene_means["score"] = gene_means[genes].prod(axis=1)
+            elif score_mode == "sum":
+                gene_means["score"] = gene_means[genes].sum(axis=1)
+            elif score_mode == "mean":
+                gene_means["score"] = gene_means[genes].mean(axis=1)
+            else:
+                raise ValueError("score_mode 必须是 'product', 'sum' 或 'mean'")
+
+            grouped = gene_means[["x_bin", "y_bin", "score"]]
+
+        elif mode == "CCI":
+            assert L_gene is not None and R_gene is not None and len(cell_types) == 2
+            source_type, target_type = cell_types
+
+            for gene in L_gene + R_gene:
+                assert gene in adata.var_names
+
+            df[celltype_key] = adata_chip.obs[celltype_key].values
+            X = adata_chip[:, L_gene + R_gene].layers["data"]
+            if issparse(X): X = X.toarray()
+
+            df_L = df[df[celltype_key] == source_type].copy()
+            for i, gene in enumerate(L_gene):
+                df_L[gene] = X[df[celltype_key] == source_type, i]
+
+            df_R = df[df[celltype_key] == target_type].copy()
+            for j, gene in enumerate(R_gene):
+                df_R[gene] = X[df[celltype_key] == target_type, len(L_gene) + j]
+
+            # 在每个 grid 上分别计算每个基因的 mean，再相乘
+            grouped_L = df_L.groupby(["x_bin", "y_bin"])[L_gene].mean()
+            grouped_L["L_expr"] = grouped_L.prod(axis=1)
+
+            grouped_R = df_R.groupby(["x_bin", "y_bin"])[R_gene].mean()
+            grouped_R["R_expr"] = grouped_R.prod(axis=1)
+
+            # 合并后相乘
+            merged = pd.merge(grouped_L["L_expr"], grouped_R["R_expr"], left_index=True, right_index=True)
+            merged["score"] = merged["L_expr"] * merged["R_expr"]
+            merged = merged.reset_index()
+            grouped = merged[["x_bin", "y_bin", "score"]]
         else:
-            raise ValueError("score_mode 必须是 'product', 'sum' 或 'mean'")
-
-        df["cell_count"] = 1
-        grouped = df.groupby(["x_bin", "y_bin"]).agg({
-            "score": "sum",
-            "cell_count": "count"
-        }).reset_index()
-
-    elif mode == "CCI":
-        assert L_gene is not None and R_gene is not None, "CCI 模式下必须提供 L_gene 和 R_gene"
-        assert len(cell_types) == 2, "CCI 模式下必须传入两个 cell_types"
-
-        for gene in L_gene + R_gene:
-            assert gene in adata.var_names, f"{gene} 不在 adata.var_names 中"
-
-        celltype_array = adata.obs[celltype_key].values
-        df[celltype_key] = celltype_array
-
-        X_L = adata[:, L_gene].layers["data"]
-        X_R = adata[:, R_gene].layers["data"]
-        if issparse(X_L): X_L = X_L.toarray()
-        if issparse(X_R): X_R = X_R.toarray()
-
-        df["L_expr"] = np.nan
-        df["R_expr"] = np.nan
-
-        mask_L = celltype_array == cell_types[0]
-        mask_R = celltype_array == cell_types[1]
-
-        if len(L_gene) == 1:
-            df.loc[mask_L, "L_expr"] = X_L[mask_L, 0]
-        else:
-            df.loc[mask_L, "L_expr"] = X_L[mask_L].mean(axis=1)
-
-        if len(R_gene) == 1:
-            df.loc[mask_R, "R_expr"] = X_R[mask_R, 0]
-        else:
-            df.loc[mask_R, "R_expr"] = X_R[mask_R].mean(axis=1)
-
-        # 每个格子内两类细胞分别求均值，然后乘积作为得分
-        L_group = df[mask_L].groupby(["x_bin", "y_bin"])["L_expr"].mean().reset_index()
-        R_group = df[mask_R].groupby(["x_bin", "y_bin"])["R_expr"].mean().reset_index()
-
-        merged_group = pd.merge(L_group, R_group, how="inner", on=["x_bin", "y_bin"])
-        merged_group["score"] = merged_group["L_expr"] * merged_group["R_expr"]
-        grouped = merged_group[["x_bin", "y_bin", "score"]].copy()
-        grouped["cell_count"] = 1  # 占位
-
-    else:
-        raise ValueError("mode 必须是 'normal' 或 'CCI'")
-
-    # 合并格子，判断空格子
-    merged = pd.merge(all_counts, grouped, how="left", on=["x_bin", "y_bin"])
-    merged["score"] = merged["score"].fillna(0)
-    merged["cell_count"] = merged["cell_count"].fillna(0)
-
-    max_radius = 50 // grid_size
-    is_empty_dict = {
-        (row["x_bin"], row["y_bin"]): row["total_cell_count"] == 0
-        for _, row in merged.iterrows()
-    }
-
-    confirmed_empty_set = set()
-    for coord, is_empty in is_empty_dict.items():
-        if not is_empty:
-            continue
-        x0, y0 = coord
-        all_neighbors_empty = True
-        for dx in range(-max_radius, max_radius + 1):
-            for dy in range(-max_radius, max_radius + 1):
-                if dx == 0 and dy == 0:
-                    continue
-                neighbor = (x0 + dx, y0 + dy)
-                if neighbor in is_empty_dict and not is_empty_dict[neighbor]:
-                    all_neighbors_empty = False
-                    break
-            if not all_neighbors_empty:
-                break
-        if all_neighbors_empty:
-            confirmed_empty_set.add(coord)
-
-    x_unique = np.arange(x_bin.min(), x_bin.max() + 1)
-    y_unique = np.arange(y_bin.min(), y_bin.max() + 1)
-    x_map = {x_val: i for i, x_val in enumerate(x_unique)}
-    y_map = {y_val: i for i, y_val in enumerate(y_unique)}
-
-    score_grid = np.full((len(y_unique), len(x_unique)), np.nan)
-
-    for _, row in merged.iterrows():
-        xi = x_map[row["x_bin"]]
-        yi = y_map[row["y_bin"]]
-        coord = (row["x_bin"], row["y_bin"])
-        if coord in confirmed_empty_set:
-            score_grid[yi, xi] = np.nan
-        else:
+            raise ValueError("mode 必须是 'normal' 或 'CCI'")
+                # ==== 填充统一 score_grid ====
+        score_grid = np.full((grid_height, grid_width), np.nan)
+        for _, row in grouped.iterrows():
+            xi = int(row["x_bin"] - global_xmin)
+            yi = int(row["y_bin"] - global_ymin)
             score_grid[yi, xi] = row["score"]
 
-    # 可视化
-    cmap = plt.get_cmap("magma_r")
-    colors = cmap(np.linspace(0, 1, 256))
-    colors[0] = [0.7, 0.7, 0.7, 1.0]
-    custom_cmap = ListedColormap(colors)
+        base_cmap = plt.get_cmap(cmap)
+        colors = base_cmap(np.linspace(0, 1, 256))
+        #colors[0] = [0.85, 0.85, 0.85, 0.4] # 灰色代表真实为0
+        custom_cmap = ListedColormap(colors)
+        
+        # 只对 score > 0 计算 vmax（避免被 0 拉低）
+        positive_scores = score_grid[score_grid > 0]
+        vmin = 0
+        vmax = np.nanpercentile(positive_scores, 99) if positive_scores.size > 0 else 1
+        
+        # 指定 Normalize 范围，让 0 映射到 colors[0]
+        norm = plt.Normalize(vmin=vmin, vmax=vmax)
+        # ==== 用 add_axes 精确分布每个子图 ====
+        ax = fig.add_axes([0.05 + idx * (0.9 / n_chips), 0.1, 0.9 / n_chips, 0.8])
+        im = ax.imshow(
+            score_grid,
+            cmap=custom_cmap,
+            origin="upper",
+            interpolation='none',
+            extent=extent,
+            norm=norm
+        )
 
-    non_zero_scores = score_grid[score_grid > 0]
-    if non_zero_scores.size == 0:
-        print("所有格子中得分均为 0，跳过颜色映射自动缩放，使用默认 vmin=0, vmax=1")
-        vmin, vmax = 0, 1
-    else:
-        vmin = np.nanmin(non_zero_scores)
-        vmax = np.nanmax(score_grid)
+        ax.set_xlim(global_xmin - 0.5 - margin*1, global_xmax + 0.5 + margin*1)
+        ax.set_ylim(global_ymax + 0.5 + margin*5, global_ymin - 0.5 - margin*1.5)
+        # ax.set_xlim(global_xmin - 0.5 - margin*0.25, global_xmax + 0.5 + margin*0.25)
+        # ax.set_ylim(global_ymax + 0.5 + margin*0.2, global_ymin - 0.5 - margin*0.2)
+        ax.set_aspect("equal")
+        ax.axis('off')
+        ax.set_title(f"{chip_id}", fontsize=12)
 
-    norm = plt.Normalize(vmin=0, vmax=vmax)
+        # ==== 轮廓线 ====
+        if outline_json_dir is not None:
+            json_file = os.path.join(
+                f"/sdd/datasets/motor_datasets_107c/mq{outline_json_dir}_cellbins/ROI/outline/MQ{outline_json_dir}-{chip_id}-P0.json"
+                #f"/sdd/bgi/wangzilu/00.motorcortex_stduio/motorcortex_proj/41.final_CellChat_3/mq{outline_json_dir}_outline/Mq{outline_json_dir}-{chip_id}-P0.json"
+            )
+            if os.path.exists(json_file):
+                with open(json_file, 'r') as f:
+                    data = json.load(f)
+                matrix = data['corr_para']['transformation_matrix']
+                for line in data['lines']:
+                    pts = np.array(line['countours'])
+                    pts_trans = apply_transformation_to_coords(pts, matrix)
+                    ax.plot(
+                        pts_trans[:, 0] / grid_size - 0.5,
+                        pts_trans[:, 1] / grid_size - 0.5,
+                        color='black',
+                        lw=0.5,
+                        alpha=0.5
+                    )
 
-    plt.figure(figsize=(10, 8))
-    im = plt.imshow(score_grid, cmap=custom_cmap, origin="upper", interpolation='none', norm=norm)
-    plt.colorbar(im, label=f"{mode} score")
-    plt.title(f"Grid-based spatial {mode} score (grid size = {grid_size})")
-    plt.xlabel("Grid X")
-    plt.ylabel("Grid Y")
-    plt.xticks([])
-    plt.yticks([])
-    plt.tight_layout()
     plt.show()
-
-    return score_grid
+    return fig
