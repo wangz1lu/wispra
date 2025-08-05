@@ -257,7 +257,7 @@ def generate_cci_heatmap(
         Heatmap matrix of colocalization interaction scores between each source-target pair.
     """
     if celltype_key is not None:
-        # ✅ 使用用户指定的 annotation 信息
+
         df = adata.obs[[subclass_key, celltype_key]]
 
         source_annots = df[df[subclass_key].isin(source_subclasses)][celltype_key].unique()
