@@ -27,7 +27,7 @@ pip install --upgrade wispra
 ```python
 import wispra as wp
 ```
-## 绘图模块（pl模块）
+### 绘图模块（pl模块）
 Ligand-Receptor Pairs 空间邻近表达可视化
 ```python
 wp.pl.plot_genes_grid_expression(
@@ -74,7 +74,7 @@ eg：x_margin_factor_left=500
     y_margin_factor_top=500  
     y_margin_factor_bottom=500  
     
-## 工具模块（tl模块）
+### 工具模块（tl模块）
 计算、统计以及可视化大量Ligand-Receptor Pairs空间分布特征
 ```python
 wp.tl.compute_interaction_score(
