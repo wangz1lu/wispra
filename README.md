@@ -69,7 +69,7 @@ wp.pl.plot_colocalization_celltypess(
 )
 ```
 注：所有pl函数均支持参数调整绘图显示范围，这在绘制轮廓线时很有帮助  
-eg：x_margin_factor_left=500  
+    x_margin_factor_left=500  
     x_margin_factor_right=500  
     y_margin_factor_top=500  
     y_margin_factor_bottom=500  
