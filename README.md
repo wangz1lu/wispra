@@ -23,11 +23,13 @@ pip install --upgrade wispra
 ```
 
 ## 用法
+### 导入
 ```python
 import wispra as wp
-
+```
 ## 绘图模块（pl模块）
-# Ligand-Receptor Pairs 空间邻近表达可视化
+Ligand-Receptor Pairs 空间邻近表达可视化
+```python
 wp.pl.plot_genes_grid_expression(
     adata=adata,
     genes=["gene1","gene2"], # 支持单/多基因，即任意数量的基因空间邻近表达可视化
@@ -36,8 +38,9 @@ wp.pl.plot_genes_grid_expression(
     library_id_key="chip",  # 支持多张片子（必选）
     outline_json_dir="/path/to/folder/", # 支持轮廓线（可选）
 ) 
-
-# Cell-to-Cell interaction 事件可视化
+```
+Cell-to-Cell interaction 事件可视化
+```python
 wp.pl.plot_genes_grid_expression(
     adata=adata,
     L_genes=["gene1"], # 支持配体复合物["gene1","gene2"]
@@ -49,8 +52,9 @@ wp.pl.plot_genes_grid_expression(
     library_id_key="chip", # 支持多张片子（必选）
     outline_json_dir="/path/to/folder/", # 支持轮廓线（可选）
 )
-
-# 邻近细胞类型空间可视化
+```
+邻近细胞类型空间可视化
+```python
 wp.pl.plot_colocalization_celltypess(
     adata=adata,
     cell_types=["celltype1", "celltype2"],
@@ -63,9 +67,16 @@ wp.pl.plot_colocalization_celltypess(
     outline_json_dir="/path/to/folder/", # 支持轮廓线（可选）
     invert_y=True # 反转y轴
 )
-
+```
+注：所有pl函数均支持参数调整绘图显示范围，这在绘制轮廓线时很有帮助  
+eg：x_margin_factor_left=500  
+    x_margin_factor_right=500  
+    y_margin_factor_top=500  
+    y_margin_factor_bottom=500  
+    
 ## 工具模块（tl模块）
-# 计算、统计以及可视化大量Ligand-Receptor Pairs空间分布特征
+计算、统计以及可视化大量Ligand-Receptor Pairs空间分布特征
+```python
 wp.tl.compute_interaction_score(
     adata=adata,
     interaction_dict, # LR pairs字典，键是pathway名称，值是对应的LR pairs
@@ -73,8 +84,9 @@ wp.tl.compute_interaction_score(
     plot_name_prefix="result", #结果文件命名
     grid_size=400, # 设置正方形网格的半径（单位：像素）
 )
-
-# 计算、统计以及可视化大量 Source -> Target 细胞对对 Ligand-Receptor Pairs 空间分布特征的贡献
+```
+计算、统计以及可视化大量 Source -> Target 细胞对对 Ligand-Receptor Pairs 空间分布特征的贡献
+```python
 wp.tl.generate_cci_heatmap(
     adata=adata,
     source_subclasses=["subclass1","subclass2","subclass3"], # 指定source细胞类型
@@ -87,9 +99,5 @@ wp.tl.generate_cci_heatmap(
     library_key="chip", # 支持多张片子（必选）
 )
 ```
-注：所有pl函数均支持参数调整绘图显示范围，这在绘制轮廓线时很有帮助  
-eg：x_margin_factor_left=500  
-    x_margin_factor_right=500  
-    y_margin_factor_top=500  
-    y_margin_factor_bottom=500  
+
     
