@@ -30,10 +30,11 @@ import wispra as wp
 wp.pl.plot_genes_grid_expression(
     adata=adata,
     genes=["gene1","gene2"], # 支持单/多基因，即任意数量的基因空间邻近表达可视化
-    grid_size=400,
-    mode="normal",
-    library_id_key="chip" # 多张片子
-)
+    grid_size=400, #设置正方形网格的半径（单位：像素）
+    mode="normal", # 普通模式
+    library_id_key="chip",  # 支持多张片子（必选）
+    outline_json_dir="/path/to/folder/", # 支持轮廓线（可选）
+) 
 
 # Cell-to-Cell interaction 事件可视化
 wp.pl.plot_genes_grid_expression(
@@ -42,11 +43,27 @@ wp.pl.plot_genes_grid_expression(
     R_genes=["gene2"], # 支持受体复合物["gene3","gene4"]
     cell_types=["celltype1","celltype2"]，
     celltype_key="celltype",
-    grid_size=400,
-    mode="CCI",
-    library_id_key="chip" #多张片子
+    grid_size=400, #设置正方形网格的半径（单位：像素）
+    mode="CCI", # CCI 模式
+    library_id_key="chip", # 支持多张片子（必选）
+    outline_json_dir="/path/to/folder/", # 支持轮廓线（可选）
 )
 
 # 邻近细胞类型空间可视化工具
-
+wp.pl.plot_colocalization_celltypess(
+    adata=adata,
+    cell_types=["celltype1", "celltype2"],
+    celltype_key="celltype",
+    library_id_key="chip", # 支持多张片子
+    point_size=0.1, # 点的大小
+    celltype_colors=["#CC0000", "#0000CC"], # 设置细胞的颜色
+    background_color="#DCDCDC", # 设置背景点的颜色
+    distance_threshold=200,
+    outline_json_dir="/path/to/folder/", # 支持轮廓线（可选）
+    x_margin_factor_left=500,
+    x_margin_factor_right=500,
+    y_margin_factor_top=-400,
+    y_margin_factor_bottom=1500,
+    invert_y=True # 反转y轴
+)
 ```
