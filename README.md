@@ -81,6 +81,7 @@ wp.tl.compute_interaction_score(
     adata=adata,
     interaction_dict, # LR pairs字典，键是pathway名称，值是对应的LR pairs
     output_dir,
+    celltype_key="SubClass",
     plot_name_prefix="result", #结果文件命名
     grid_size=400, # 设置正方形网格的半径（单位：像素）
 )
