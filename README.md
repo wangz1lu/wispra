@@ -43,8 +43,8 @@ Cell-to-Cell interaction 事件可视化
 ```python
 wp.pl.plot_genes_grid_expression(
     adata=adata,
-    L_genes=["gene1"], # 支持配体复合物["gene1","gene2"]
-    R_genes=["gene2"], # 支持受体复合物["gene3","gene4"]
+    L_gene=["gene1"], # 支持配体复合物["gene1","gene2"]
+    R_gene=["gene2"], # 支持受体复合物["gene3","gene4"]
     cell_types=["celltype1","celltype2"]，
     celltype_key="celltype", # 设置输入细胞类型对应的标签
     grid_size=400, # 设置正方形网格的半径（单位：像素）
@@ -55,7 +55,7 @@ wp.pl.plot_genes_grid_expression(
 ```
 邻近细胞类型空间可视化
 ```python
-wp.pl.plot_colocalization_celltypess(
+wp.pl.plot_colocalization_celltypes(
     adata=adata,
     cell_types=["celltype1", "celltype2"],
     celltype_key="celltype", # 设置输入细胞类型对应的标签
