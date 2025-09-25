@@ -103,6 +103,8 @@ wp.tl.generate_cci_heatmap(
 推断单细胞分辨率细胞通讯
 ```
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-df_events_perm = listen_to_whispers(adata, lr_db, n_perm=1000, device=device)
+events_df = wp.tl.listen_to_whispers(adata, lr_db, n_perm=1000, device=device)
+obs_cols_keep = ["region_name","chip","annotation","batch","region","layer","old_layer","x","y"]
+adata_niche = build_anndata(events_df, adata, obs_cols=obs_cols_keep,X_col="prob",layers_col=None)
 ```
     
