@@ -101,7 +101,7 @@ wp.tl.generate_cci_heatmap(
 )
 ```
 推断单细胞分辨率细胞通讯
-```
+```python
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 events_df = wp.tl.listen_to_whispers(adata, lr_db, n_perm=1000, device=device)
 obs_cols_keep = ["region_name","chip","annotation","batch","region","layer","old_layer","x","y"]
