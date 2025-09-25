@@ -103,6 +103,6 @@ wp.tl.generate_cci_heatmap(
 推断单细胞分辨率细胞通讯
 ```
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-df_events_perm = permutation_test_gpu_optimized_sparse_bidirectional(adata, lr_db, n_perm=1000, device=device)
+df_events_perm = listen_to_whispers(adata, lr_db, n_perm=1000, device=device)
 ```
     
